@@ -2,6 +2,7 @@ pub use scene_object::Sphere;
 // FOR RAY TRACING
 
 pub trait SceneObject {
+    // All scene objects must be closed 2D surfaces
     fn get_location(&self) -> Vector;
     fn set_location(&mut self, goto: &Vector) -> ();
     fn intersection(&self, ray: &Vector, starting_point: &Vector) -> Option<IntersectionData>;
@@ -271,6 +272,7 @@ pub mod scene {
                 for x in -self.width..self.width {
                     let a = Vector::new(x as f64, y as f64, -self.distance);
                     to_return.push(Vector::new(x as f64, y as f64, -self.distance).return_three_matrix_mut(&rotation_matrix));
+                    //to_return.push(Vector::new(x as f64, y as f64, self.distance));
                 }
             }
             to_return
@@ -305,11 +307,10 @@ pub mod scene {
         intersect
     }
     pub fn draw(cam: &Camera, screen: &Screen, content: &Contents) -> Vec<u8> {
-        //TODO: generalise camera location
-        //TODO: generalise camera direction
         //TODO: add different surfaces for different objects
         let mut pixel_data = Vec::new();
         let screen_points = screen.points_from_camera(cam);
+        println!("camera location {:?}", cam.location);
         for point in screen_points {
             let intersect = nearest_intersection_data(&content, &point, &cam.location);
             match intersect {
@@ -406,6 +407,7 @@ pub trait Agent {
     fn get_location(&self) -> Vector;
     fn set_location(&mut self, togo: &Vector);
     fn get_body(&self) -> &Box<dyn SceneObject>;
+    fn distance_from(&self, point: &Vector) -> f64;
 }
 pub struct BasicAgent {
     body: Box<dyn SceneObject>,
@@ -421,7 +423,7 @@ impl Agent for BasicAgent {
         let mut dl = Vector::origin();
         for other_agent in other_agents {
             let between = Vector::vector_between(&self.get_location(), &other_agent.get_location());
-            if between.magnitude() < 50f64 {
+            if between.magnitude() < self.distance_from(&other_agent.get_location()) + other_agent.distance_from(&self.get_location()) {
                 dl.minus(&between.return_normalised());
             }
             else {
@@ -440,6 +442,11 @@ impl Agent for BasicAgent {
 
     fn get_body(&self) -> &Box<dyn SceneObject> {
         &self.body
+    }
+
+    fn distance_from(&self, point: &Vector) -> f64 {
+        let vector_between = Vector::vector_between(&self.get_location(), &point);
+        self.body.intersection(&vector_between, &self.body.get_location()).unwrap().distance
     }
 }
 
@@ -461,6 +468,10 @@ impl Agent for SmartCamera {
     }
 
     fn get_body(&self) -> &Box<dyn SceneObject> {
+        todo!()
+    }
+
+    fn distance_from(&self, point: &Vector) -> f64 {
         todo!()
     }
 }
