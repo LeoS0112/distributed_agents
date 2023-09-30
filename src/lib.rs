@@ -1,6 +1,8 @@
+use std::sync::mpsc::{Receiver, Sender};
+use std::thread;
+use show_image::event::VirtualKeyCode::V;
 pub use scene_object::Sphere;
 // FOR RAY TRACING
-
 pub trait SceneObject {
     // All scene objects must be closed 2D surfaces
     fn get_location(&self) -> Vector;
@@ -133,6 +135,10 @@ impl Vector {
             z: 0.0,
         }
     }
+
+    pub fn from_vec(from: Vec<f64>) -> Vector {
+        Vector::new(from[0], from[1], from[2])
+    }
     pub fn return_normalised(&self) -> Vector {
         let magnitude = Vector::magnitude(&self);
         Vector::new(self.x / magnitude, self.y / magnitude, self.z / magnitude)
@@ -197,11 +203,13 @@ impl Vector {
             row_two: Vector::new(sin_phi, 0.0, -cos_phi)
         };
         let a = ThreeMatrix::return_multiply(&x_rot, &y_rot);
-        println!("{}", a.determinant());
         let b = a.return_transpose();
         let c= ThreeMatrix::return_multiply(&a, &b);
-        println!("{:?}", a);
         a
+    }
+
+    pub fn to_string(&self) -> String {
+        self.x.to_string() + " " + &*self.y.to_string() + " " + &*self.z.to_string()
     }
 }
 
@@ -266,7 +274,6 @@ pub mod scene {
     impl Screen {
         fn points_from_camera(&self, cam: &Camera) -> Vec<Vector> {
             let mut to_return = vec![];
-            println!("{:?}", &cam.direction);
             let rotation_matrix = Vector::three_rotation_matrix_between(&Vector::new(0.0, 0.0, -1.0), &cam.direction);
             for y in -self.height..self.height {
                 for x in -self.width..self.width {
@@ -284,7 +291,7 @@ pub mod scene {
         pub intensity: u8
     }
     pub struct Contents<'a> {
-        pub objects: Vec<&'a Box<dyn SceneObject>>,
+        pub objects: Vec<&'a Box<dyn SceneObject + Send>>,
         pub light: Vec<&'a LightSource>
     }
     pub fn nearest_intersection_data(content: &Contents, ray: &Vector, starting_point: &Vector) -> Option<IntersectionData> {
@@ -310,7 +317,6 @@ pub mod scene {
         //TODO: add different surfaces for different objects
         let mut pixel_data = Vec::new();
         let screen_points = screen.points_from_camera(cam);
-        println!("camera location {:?}", cam.location);
         for point in screen_points {
             let intersect = nearest_intersection_data(&content, &point, &cam.location);
             match intersect {
@@ -403,34 +409,33 @@ impl Colour {
 
 // FOR BEHAVIOUR
 pub trait Agent {
-    fn act(&mut self, other_agents: &Vec<&dyn Agent>) -> ();
+    fn act(&mut self, s: Sender<String>, r: Receiver<String>) -> ();
     fn get_location(&self) -> Vector;
     fn set_location(&mut self, togo: &Vector);
-    fn get_body(&self) -> &Box<dyn SceneObject>;
+    fn get_body(&self) -> &Box<dyn SceneObject + Send>;
     fn distance_from(&self, point: &Vector) -> f64;
 }
 pub struct BasicAgent {
-    body: Box<dyn SceneObject>,
+    body: Box<dyn SceneObject + Send>,
 }
 
 impl BasicAgent {
-    pub fn new(body: Box<dyn SceneObject>) -> BasicAgent {
+    pub fn new(body: Box<dyn SceneObject + Send>) -> BasicAgent {
         return BasicAgent { body }
     }
 }
 impl Agent for BasicAgent {
-    fn act(&mut self, other_agents: &Vec<&dyn Agent>) {
+    fn act(&mut self, s: Sender<String>, r: Receiver<String>) {
         let mut dl = Vector::origin();
-        for other_agent in other_agents {
-            let between = Vector::vector_between(&self.get_location(), &other_agent.get_location());
-            if between.magnitude() < self.distance_from(&other_agent.get_location()) + other_agent.distance_from(&self.get_location()) {
-                dl.minus(&between.return_normalised());
-            }
-            else {
-                dl.plus(&between.return_normalised());
-            }
-        }
-        self.set_location(&self.get_location().return_plus(&dl));
+        s.send(String::from(self.get_location().to_string())).expect("Message should have sent");
+        let rec = r.recv().expect("Message should be received");
+        println!("{}", rec);
+        let other_location = Vector::from_vec(rec.split(" ").map(|s| s.parse::<f64>().unwrap()).collect());
+        println!("{:?}", other_location);
+        let diff = Vector::vector_between(&self.body.get_location(), &other_location);
+        let to_change = diff.return_multiply(0.01);
+        println!("{:?}", to_change);
+        self.set_location(&self.get_location().return_plus(&to_change));
     }
     fn get_location(&self) -> Vector {
         self.body.get_location()
@@ -440,7 +445,7 @@ impl Agent for BasicAgent {
         self.body.set_location(&togo);
     }
 
-    fn get_body(&self) -> &Box<dyn SceneObject> {
+    fn get_body(&self) -> &Box<dyn SceneObject + Send> {
         &self.body
     }
 
@@ -454,6 +459,7 @@ pub struct SmartCamera {
 
 }
 
+/*
 impl Agent for SmartCamera {
     fn act(&mut self, other_agents: &Vec<&dyn Agent>) -> () {
         todo!()
@@ -467,7 +473,7 @@ impl Agent for SmartCamera {
         todo!()
     }
 
-    fn get_body(&self) -> &Box<dyn SceneObject> {
+    fn get_body(&self) -> &Box<dyn SceneObject + Send> {
         todo!()
     }
 
@@ -475,5 +481,6 @@ impl Agent for SmartCamera {
         todo!()
     }
 }
+*/
 
 
