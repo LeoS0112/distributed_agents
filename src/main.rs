@@ -13,6 +13,7 @@ fn main() {
     // Creating the test spheres
     let mut test_sphere = Sphere { radius: 150.0, location: Vector::new(0.0, 0.0, 1200.0) };
     let mut test_sphere2 = Sphere { radius: 120.0, location: Vector::new(150.0, 150.0, 1400.0) };
+    let mut test_sphere3 = Sphere { radius: 100.0, location: Vector::new(-100.0, -20.0, 1000.0) };
 
     // Creating the test Camera, Screen and Light Sources
     let test_cam = Camera {
@@ -34,22 +35,23 @@ fn main() {
         colour: Colour::new(0, 100, 0),
         intensity: 0,
     };
-
-    let mut r_channels: Vec<Receiver<String>>= vec![];
-    let mut s_channels: Vec<Sender<String>> = vec![];
     let (sa, ra) = channel();
     let (sb, rb) = channel();
+    let (sc, rc) = channel();
+
+    let mut s_channels: Arc<Vec<Mutex<Sender<String>>>> = Arc::new(vec![Mutex::new(sa.clone()),Mutex::new(sb.clone()), Mutex::new(sc.clone())]);
     // Creating the agents
-    let mut a = Arc::new(Mutex::new(BasicAgent::new(0, Arc::new(Mutex::new(Box::new(test_sphere))), Mutex::new(sa), Mutex::new(rb))));
-    let mut b = Arc::new(Mutex::new(BasicAgent::new(1, Arc::new(Mutex::new(Box::new(test_sphere2))), Mutex::new(sb), Mutex::new(ra))));
+    let mut a = Arc::new(Mutex::new(BasicAgent::new(0, Arc::new(Mutex::new(Box::new(test_sphere))), s_channels.clone(), Mutex::new(ra))));
+    let mut b = Arc::new(Mutex::new(BasicAgent::new(1, Arc::new(Mutex::new(Box::new(test_sphere2))), s_channels.clone(), Mutex::new(rb))));
+    let mut c = Arc::new(Mutex::new(BasicAgent::new(2, Arc::new(Mutex::new(Box::new(test_sphere3))), s_channels.clone(), Mutex::new(rc))));
 
 
     // Running the simulation
     let window = create_window("image", Default::default()).expect("Should work");
     let mut to_show = Vec::new();
-    let mut agents: Vec<Arc<Mutex<BasicAgent>>> = vec![a.clone(), b.clone()];
+    let mut agents: Vec<Arc<Mutex<BasicAgent>>> = vec![a.clone(), b.clone(), c.clone()];
 
-    for n in 0..10 {
+    for _ in 0..100 {
         let mut handles = vec![];
         let num_agents = agents.len();
         for agent_num in 0..num_agents {
@@ -71,7 +73,7 @@ fn main() {
 
     // Playing the simulation in a loop
     loop {
-        for pd in 0..10{
+        for pd in 0..100{
             let image = ImageView::new(ImageInfo::rgb8((2 * test_screen.width) as u32, (2 * test_screen.height) as u32), &to_show[pd]);
             window.set_image("image-001", image).expect("set image");
             let mut child = Command::new("sleep").arg("0.02").spawn().unwrap();

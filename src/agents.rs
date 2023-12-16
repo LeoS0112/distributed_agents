@@ -12,29 +12,40 @@ pub trait Agent {
     fn get_body(&self) -> Arc<Mutex<Box<dyn SceneObject + Send + Sync>>>;
     fn distance_from(&self, point: &Vector) -> f64;
 }
-pub struct BasicAgent {
+pub struct BasicAgent<> {
     id: i64,
     body: Arc<Mutex<Box<dyn SceneObject + Send + Sync>>>,
-    sender: Mutex<Sender<String>>,
+    senders: Arc<Vec<Mutex<Sender<String>>>>, //each BasicAgent will have a sender channel for each other agent
     receiver: Mutex<Receiver<String>>,
 }
-impl BasicAgent {
-    pub fn new(id: i64, body: Arc<Mutex<Box<dyn SceneObject + Send + Sync>>>, sender: Mutex<Sender<String>>, receiver: Mutex<Receiver<String>>) -> BasicAgent {
-        return BasicAgent { id, body, sender, receiver }
+impl BasicAgent<> {
+    pub fn new<>(id: i64, body: Arc<Mutex<Box<dyn SceneObject + Send + Sync>>>, sender: Arc<Vec<Mutex<Sender<String>>>>, receiver: Mutex<Receiver<String>>) -> BasicAgent {
+        return BasicAgent { id, body, senders: sender, receiver }
     }
 }
-impl Agent for BasicAgent {
+impl Agent for BasicAgent<> {
+
+    //act(_) will ask the other vectors where they are and go towards them
     fn act(&self, mut slf: Arc<Mutex<BasicAgent>>) -> JoinHandle<()>{
         let h = thread::spawn(move || {
-            let to_change = Vector::new(1.0, 1.0, 1.0);
+            let to_change = Vector::origin();
             let mut slf_unlocked = slf.lock().unwrap();
-            let new_location = &slf_unlocked.get_location().return_plus(&to_change);
-            slf_unlocked.set_location(new_location);
-            let to_send = String::from(format!("Hello, I am: {}", slf_unlocked.id));
-            println!("{}", to_send);
-            slf_unlocked.sender.lock().unwrap().send(to_send).unwrap();
-            let received =  slf_unlocked.receiver.lock().unwrap().recv().unwrap();
-            println!("Thanks, I am {}", slf_unlocked.id);
+            //let new_location = &slf_unlocked.get_location().return_plus(&to_change);
+            //slf_unlocked.set_location(new_location);
+            let location = slf_unlocked.get_location();
+            let to_send = String::from(format!("{} {} {} {}", slf_unlocked.id, location.x, location.y, location.z));
+            let num_senders = slf_unlocked.senders.len();
+            for i in 0..num_senders{
+                slf_unlocked.senders[i].lock().unwrap().send(to_send.clone()).unwrap();
+            }
+            for i in 0..num_senders {
+                let received =  slf_unlocked.receiver.lock().unwrap().recv().unwrap();
+                let info: Vec<&str> = received.split(' ').collect();
+                let to_add = Vector::vector_between(&slf_unlocked.get_location(), &Vector::new(info[1].parse::<f64>().unwrap(), info[2].parse::<f64>().unwrap(), info[3].parse::<f64>().unwrap())).return_multiply(0.01);
+                let new_location = &slf_unlocked.get_location().return_plus(&to_add);
+                slf_unlocked.set_location(new_location);
+                //println!("{}", info[0])
+            }
         });
         return h;
     }
