@@ -78,7 +78,7 @@ impl Vector {
     pub fn return_three_matrix_mut(&self, mat: &ThreeMatrix) -> Vector {
         Vector::new(Vector::dot(&mat.row_zero, &self), Vector::dot(&mat.row_one, &self), Vector::dot(&mat.row_two, &self))
     }
-    pub fn three_rotation_matrix_between(from: &Vector, to: &Vector) -> ThreeMatrix {
+    pub fn three_rotation_matrix_between(_from: &Vector, to: &Vector) -> ThreeMatrix {
         //TODO generalise the first vector - for now it is only neg z
         let to = to.return_normalised();
         let sin_theta = to.y;
@@ -96,7 +96,7 @@ impl Vector {
             row_two: Vector::new(sin_phi, 0.0, -cos_phi)
         };
         let a = ThreeMatrix::return_multiply(&x_rot, &y_rot);
-        let b = a.return_transpose();
+        //let b = a.return_transpose();
         //let c= ThreeMatrix::return_multiply(&a, &b);
         a
     }

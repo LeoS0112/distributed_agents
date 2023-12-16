@@ -1,19 +1,18 @@
 use std::process::Command;
-use std::sync::mpsc::{Sender, Receiver, channel};
+use std::sync::mpsc::{Sender, channel};
 use std::sync::{Arc, Mutex};
 use show_image::{ImageView, ImageInfo, create_window};
-use show_image::event::VirtualKeyCode::Mute;
 use summer2023::matrices::{Vector};
 use summer2023::raytracer::scene::{Camera, Contents, draw, LightSource, Screen};
-use summer2023::raytracer::{Colour, scene_objects::Sphere, SceneObject};
+use summer2023::raytracer::{Colour, scene_objects::Sphere};
 use summer2023::agents::{Agent, BasicAgent};
 
 #[show_image::main]
 fn main() {
     // Creating the test spheres
-    let mut test_sphere = Sphere { radius: 150.0, location: Vector::new(0.0, 0.0, 1200.0) };
-    let mut test_sphere2 = Sphere { radius: 120.0, location: Vector::new(150.0, 150.0, 1400.0) };
-    let mut test_sphere3 = Sphere { radius: 100.0, location: Vector::new(-100.0, -20.0, 1000.0) };
+    let test_sphere = Sphere { radius: 150.0, location: Vector::new(0.0, 0.0, 1200.0) };
+    let test_sphere2 = Sphere { radius: 120.0, location: Vector::new(150.0, 150.0, 1400.0) };
+    let test_sphere3 = Sphere { radius: 100.0, location: Vector::new(-100.0, -20.0, 1000.0) };
 
     // Creating the test Camera, Screen and Light Sources
     let test_cam = Camera {
@@ -39,17 +38,17 @@ fn main() {
     let (sb, rb) = channel();
     let (sc, rc) = channel();
 
-    let mut s_channels: Arc<Vec<Mutex<Sender<String>>>> = Arc::new(vec![Mutex::new(sa.clone()),Mutex::new(sb.clone()), Mutex::new(sc.clone())]);
+    let s_channels: Arc<Vec<Mutex<Sender<String>>>> = Arc::new(vec![Mutex::new(sa.clone()),Mutex::new(sb.clone()), Mutex::new(sc.clone())]);
     // Creating the agents
-    let mut a = Arc::new(Mutex::new(BasicAgent::new(0, Arc::new(Mutex::new(Box::new(test_sphere))), s_channels.clone(), Mutex::new(ra))));
-    let mut b = Arc::new(Mutex::new(BasicAgent::new(1, Arc::new(Mutex::new(Box::new(test_sphere2))), s_channels.clone(), Mutex::new(rb))));
-    let mut c = Arc::new(Mutex::new(BasicAgent::new(2, Arc::new(Mutex::new(Box::new(test_sphere3))), s_channels.clone(), Mutex::new(rc))));
+    let a = Arc::new(Mutex::new(BasicAgent::new(0, Arc::new(Mutex::new(Box::new(test_sphere))), s_channels.clone(), Mutex::new(ra))));
+    let b = Arc::new(Mutex::new(BasicAgent::new(1, Arc::new(Mutex::new(Box::new(test_sphere2))), s_channels.clone(), Mutex::new(rb))));
+    let c = Arc::new(Mutex::new(BasicAgent::new(2, Arc::new(Mutex::new(Box::new(test_sphere3))), s_channels.clone(), Mutex::new(rc))));
 
 
     // Running the simulation
     let window = create_window("image", Default::default()).expect("Should work");
     let mut to_show = Vec::new();
-    let mut agents: Vec<Arc<Mutex<BasicAgent>>> = vec![a.clone(), b.clone(), c.clone()];
+    let agents: Vec<Arc<Mutex<BasicAgent>>> = vec![a.clone(), b.clone(), c.clone()];
 
     for _ in 0..100 {
         let mut handles = vec![];

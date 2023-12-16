@@ -26,19 +26,16 @@ impl BasicAgent<> {
 impl Agent for BasicAgent<> {
 
     //act(_) will ask the other vectors where they are and go towards them
-    fn act(&self, mut slf: Arc<Mutex<BasicAgent>>) -> JoinHandle<()>{
+    fn act(&self, slf: Arc<Mutex<BasicAgent>>) -> JoinHandle<()>{
         let h = thread::spawn(move || {
-            let to_change = Vector::origin();
             let mut slf_unlocked = slf.lock().unwrap();
-            //let new_location = &slf_unlocked.get_location().return_plus(&to_change);
-            //slf_unlocked.set_location(new_location);
             let location = slf_unlocked.get_location();
             let to_send = String::from(format!("{} {} {} {}", slf_unlocked.id, location.x, location.y, location.z));
             let num_senders = slf_unlocked.senders.len();
             for i in 0..num_senders{
                 slf_unlocked.senders[i].lock().unwrap().send(to_send.clone()).unwrap();
             }
-            for i in 0..num_senders {
+            for _ in 0..num_senders {
                 let received =  slf_unlocked.receiver.lock().unwrap().recv().unwrap();
                 let info: Vec<&str> = received.split(' ').collect();
                 let to_add = Vector::vector_between(&slf_unlocked.get_location(), &Vector::new(info[1].parse::<f64>().unwrap(), info[2].parse::<f64>().unwrap(), info[3].parse::<f64>().unwrap())).return_multiply(0.01);
